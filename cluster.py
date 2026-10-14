@@ -12,33 +12,34 @@ import tomllib
 def deploy(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.run(
-            ["scp", "-r", "bin", "benchmarks.py", "configs", f"{pc}:{remote_dir}"]
+            ["scp", "-r", "bin", "benchmarks.py", "config.toml", f"{pc}:{remote_dir}"],
+            check=False,
         )
-        subprocess.run(["ssh", pc, "mkdir", "-p", f"{remote_dir}/data"])
+        subprocess.run(["ssh", pc, "mkdir", "-p", f"{remote_dir}/data"], check=False)
 
 
 def collect(remote_dir, data_dir, minipcs):
     results_dir = f"{data_dir}_{time.strftime('%Y%m%d')}"
-    subprocess.run(["mkdir", "-p", results_dir])
+    subprocess.run(["mkdir", "-p", data_dir], check=False)
     for pc in minipcs:
-        subprocess.run(["scp", "-r", f"{pc}:{remote_dir}/data/*", results_dir])
+        subprocess.run(["scp", "-r", f"{pc}:{remote_dir}/data/*", results_dir], check=False)
     # subprocess.run(['zip', '-r', f'{results_dir}.zip', results_dir])
 
 
 def clean(remote_dir, minipcs):
     for pc in minipcs:
-        subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/*"])
+        subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/*"], check=False)
 
 
 def clean_data(remote_dir, minipcs):
     for pc in minipcs:
-        subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/data/*"])
+        subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/data/*"], check=False)
 
 
 def ls(remote_dir, minipcs):
     for pc in minipcs:
         print(f"{pc}")
-        subprocess.run(["ssh", pc, "ls", f"{remote_dir}/*"])
+        subprocess.run(["ssh", pc, "ls", f"{remote_dir}/*"], check=False)
         print("---------------------------")
 
 
@@ -48,14 +49,14 @@ def data(remote_dir, data_dir, minipcs):
 
     i = 0
     for file in files:
-        subprocess.run(["scp", str(file), f"{minipcs[i]}:{remote_dir}/data"])
+        subprocess.run(["scp", str(file), f"{minipcs[i]}:{remote_dir}/data"], check=False)
         i = (i + 1) % len(minipcs)
 
 
 def ps(minipcs):
     for pc in minipcs:
         print(f"{pc}:")
-        subprocess.run(["ssh", pc, "ps aux --sort=-pcpu | head -n 2"])
+        subprocess.run(["ssh", pc, "ps aux --sort=-pcpu | head -n 2"], check=False)
 
 
 def run(remote_dir, minipcs):

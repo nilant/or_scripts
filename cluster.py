@@ -18,11 +18,21 @@ def deploy(remote_dir, minipcs):
         subprocess.run(["ssh", pc, "mkdir", "-p", f"{remote_dir}/data"], check=False)
 
 
+def config(remote_dir, minipcs):
+    for pc in minipcs:
+        subprocess.run(
+            ["scp", "config.toml", f"{pc}:{remote_dir}"],
+            check=False,
+        )
+
+
 def collect(remote_dir, data_dir, minipcs):
     results_dir = f"{data_dir}_{time.strftime('%Y%m%d')}"
     subprocess.run(["mkdir", "-p", data_dir], check=False)
     for pc in minipcs:
-        subprocess.run(["scp", "-r", f"{pc}:{remote_dir}/data/*", results_dir], check=False)
+        subprocess.run(
+            ["scp", "-r", f"{pc}:{remote_dir}/data/*", results_dir], check=False
+        )
     # subprocess.run(['zip', '-r', f'{results_dir}.zip', results_dir])
 
 
@@ -49,7 +59,9 @@ def data(remote_dir, data_dir, minipcs):
 
     i = 0
     for file in files:
-        subprocess.run(["scp", str(file), f"{minipcs[i]}:{remote_dir}/data"], check=False)
+        subprocess.run(
+            ["scp", str(file), f"{minipcs[i]}:{remote_dir}/data"], check=False
+        )
         i = (i + 1) % len(minipcs)
 
 
@@ -106,6 +118,7 @@ def load_config(config_path):
 # each command takes (remote_dir, data_dir, minipcs)
 COMMANDS = {
     "deploy": lambda r, d, m: deploy(r, m),
+    "config": lambda r, d, m: config(r, m),
     "collect": lambda r, d, m: collect(r, d, m),
     "clean": lambda r, d, m: clean(r, m),
     "clean_data": lambda r, d, m: clean_data(r, m),

@@ -77,9 +77,13 @@ def run(remote_dir, minipcs):
         subprocess.Popen(
             [
                 "ssh",
+                "-n",
                 pc,
-                f"cd {remote_dir} && nohup ./benchmarks.py data &>/dev/null </dev/null",
-            ]
+                f"cd {remote_dir} && nohup ./benchmarks.py data &>/dev/null </dev/null &",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
     time.sleep(1)
 

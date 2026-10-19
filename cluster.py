@@ -27,11 +27,10 @@ def config(remote_dir, minipcs):
 
 
 def collect(remote_dir, data_dir, minipcs):
-    results_dir = f"{data_dir}_{time.strftime('%Y%m%d')}"
     subprocess.run(["mkdir", "-p", data_dir], check=False)
     for pc in minipcs:
         subprocess.run(
-            ["scp", "-r", f"{pc}:{remote_dir}/data/*", results_dir], check=False
+            ["scp", "-r", f"{pc}:{remote_dir}/data/*", data_dir], check=False
         )
     # subprocess.run(['zip', '-r', f'{results_dir}.zip', results_dir])
 

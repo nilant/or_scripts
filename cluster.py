@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import pathlib
 import readline
+import shlex
 import subprocess
 import sys
 import time
@@ -75,11 +77,27 @@ def run(remote_dir, minipcs):
         subprocess.Popen(
             [
                 "ssh",
+                "-n",
                 pc,
-                f"cd {remote_dir} && nohup ./benchmarks.py data &>/dev/null </dev/null",
-            ]
+                f"cd {remote_dir} && nohup ./benchmarks.py data &>/dev/null </dev/null &",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
     time.sleep(1)
+
+
+def stop(minipcs):
+    for pc in minipcs:
+        print(f"{pc}:")
+        # kill benchmarks.py first so it cannot launch the next bin, then the
+        # running bins (started as ./bin/<name>); [b] keeps pkill from matching
+        # the remote shell running this command
+        subprocess.run(
+            ["ssh", pc, "pkill -f '[b]enchmarks.py'; pkill -f '^\\./bin/'"],
+            check=False,
+        )
 
 
 def all_(remote_dir, data_dir, minipcs):
@@ -89,13 +107,21 @@ def all_(remote_dir, data_dir, minipcs):
     run(remote_dir, minipcs)
 
 
-def load_config(config_path):
+def resolve_config(config_path):
     if config_path:
-        path = config_path
-    elif pathlib.Path("config.toml").exists():
-        path = pathlib.Path("config.toml")
-    else:
-        raise ValueError("no configuration available")
+        return config_path
+    if pathlib.Path("config.toml").exists():
+        return pathlib.Path("config.toml")
+    raise ValueError("no configuration available")
+
+
+def edit_config(config_path):
+    editor = shlex.split(os.environ.get("EDITOR", "nvim"))
+    subprocess.run([*editor, str(resolve_config(config_path))], check=False)
+
+
+def load_config(config_path):
+    path = resolve_config(config_path)
 
     with open(path, "rb") as f:
         config = tomllib.load(f)["cluster"]
@@ -125,6 +151,7 @@ COMMANDS = {
     "data": lambda r, d, m: data(r, d, m),
     "ps": lambda r, d, m: ps(m),
     "run": lambda r, d, m: run(r, m),
+    "stop": lambda r, d, m: stop(m),
     "all": all_,
 }
 
@@ -141,7 +168,7 @@ def execute(command, settings):
 
 def shell(config_path):
     settings = load_config(config_path)
-    names = sorted(COMMANDS) + ["help", "reload", "quit", "exit"]
+    names = sorted(COMMANDS) + ["edit_config", "help", "reload", "quit", "exit"]
 
     readline.set_completer(
         lambda text, n: ([c for c in names if c.startswith(text)] + [None])[n]
@@ -164,7 +191,9 @@ def shell(config_path):
             break
         if line == "help":
             print("commands:", ", ".join(names))
-        elif line == "reload":
+        elif line in ("reload", "edit_config"):
+            if line == "edit_config":
+                edit_config(config_path)
             try:
                 settings = load_config(config_path)
                 print("configuration reloaded")
@@ -184,7 +213,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        if args.command:
+        if args.command == "edit_config":
+            edit_config(args.config)
+        elif args.command:
             execute(args.command, load_config(args.config))
         else:
             shell(args.config)

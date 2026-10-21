@@ -37,7 +37,7 @@ def read_dataframe(args):
     return df
 
 
-def write_excel(args):
+def write_output(args):
     df = read_dataframe(args)
 
     algos = [pathlib.Path(a).stem for a in config["execs"]]  # remove extension
@@ -49,15 +49,22 @@ def write_excel(args):
 
     output_dir = pathlib.Path.cwd() / "doc"
     output_dir.mkdir(exist_ok=True)
-    output_file = (output_dir / args.input_dir.name).with_suffix(".xlsx")
+    output_file = output_dir / args.input_dir.name
 
-    df.to_excel(
-        output_file,
-        na_rep="-",
-        float_format="%.2f",
-        merge_cells=config["merge_cells"],
-        sheet_name=args.input_dir.name,
-    )
+    if args.format == "csv":
+        df.to_csv(
+            output_file.with_suffix(".csv"),
+            na_rep="-",
+            float_format="%.2f",
+        )
+    else:
+        df.to_excel(
+            output_file.with_suffix(".xlsx"),
+            na_rep="-",
+            float_format="%.2f",
+            merge_cells=config["merge_cells"],
+            sheet_name=args.input_dir.name,
+        )
 
 
 if __name__ == "__main__":
@@ -65,7 +72,14 @@ if __name__ == "__main__":
     parser.add_argument("input_dir", type=pathlib.Path)
     parser.add_argument("--config", type=pathlib.Path, help="configuration file")
 
-    parser.set_defaults(func=write_excel)
+    parser.add_argument(
+        "--format",
+        choices=["csv", "excel"],
+        default="csv",
+        help="output format (default: csv)",
+    )
+
+    parser.set_defaults(func=write_output)
     args = parser.parse_args()
 
     if args.config:

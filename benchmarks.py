@@ -1,34 +1,20 @@
 #! /usr/bin/env python3
 import argparse
-import datetime
-import os
 import pathlib
-import socket
 import subprocess
 import sys
-import time
 import tomllib
 
-import requests
+"""Run every configured executable on every instance in a directory.
+
+Usage: ./benchmarks.py INPUT_DIR [--config FILE]
+
+Reads the [benchmarks] section of the config: `execs` lists the binaries in
+./bin to run, every other key is forwarded to them as `--key value`.
+"""
 
 
-def send_message_to_telegram(msg):
-    token = "6276168703:AAHuAEsAKTu08oEHbEPBF2PUHm4_IhQ7z2c"
-    chat_id = "60446563"
-
-    if not token or not chat_id:
-        return
-
-    url = (
-        f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
-    )
-    try:
-        requests.get(url)
-    except ConnectionError:
-        print("no connection")
-
-
-# must be launch from project root dir
+# must be launched from the project root dir (binaries are looked up in ./bin)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_dir", type=pathlib.Path, help="instances directory")
@@ -36,6 +22,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # sanity checks on the input directory
     if not args.input_dir.exists():
         print("input_dir does not exist")
         sys.exit()
@@ -44,6 +31,7 @@ if __name__ == "__main__":
         print("input_dir does not contains any instance")
         sys.exit()
 
+    # config file: --config, else ./config.toml in the current directory
     if args.config:
         config_path = args.config
     elif pathlib.Path("config.toml").exists():
@@ -57,22 +45,16 @@ if __name__ == "__main__":
 
     execs = config["execs"]
 
+    # every key except `execs` becomes a command line option for the binaries
     cmdl_args = []
     for k, v in config.items():
         if k != "execs":
             cmdl_args.append(f"--{k}")
             cmdl_args.append(str(v))
 
+    # run each binary over all the instances, one after the other
     for cmd in execs:
         cmd = "./bin/" + cmd
-        start = time.time()
         for input in args.input_dir.glob("**/*.json"):
             print(f"launching {cmd} with input {input}...")
             subprocess.run([cmd, input] + cmdl_args, check=False)
-
-        end = time.time()
-        elapsed_time = datetime.timedelta(seconds=(end - start))
-
-        hostname = os.environ.get("HOSTNAME", socket.gethostname())
-        msg = f"run of {cmd} on {hostname} completed in {elapsed_time}"
-        send_message_to_telegram(msg)

@@ -10,7 +10,16 @@ import sys
 import time
 import tomllib
 
+"""Manage the benchmark runs on the remote mini-PCs.
 
+Usage: ./cluster.py [COMMAND] [--config FILE]
+
+Without a command an interactive shell is started. Machines and directories
+are read from the [cluster] section of the config. See COMMANDS below.
+"""
+
+
+# copy binaries, benchmarks.py and config to each pc and create the data dir
 def deploy(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.run(
@@ -20,6 +29,7 @@ def deploy(remote_dir, minipcs):
         subprocess.run(["ssh", pc, "mkdir", "-p", f"{remote_dir}/data"], check=False)
 
 
+# push only config.toml
 def config(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.run(
@@ -28,6 +38,7 @@ def config(remote_dir, minipcs):
         )
 
 
+# download the remote results into the local data_dir
 def collect(remote_dir, data_dir, minipcs):
     subprocess.run(["mkdir", "-p", data_dir], check=False)
     for pc in minipcs:
@@ -37,16 +48,19 @@ def collect(remote_dir, data_dir, minipcs):
     # subprocess.run(['zip', '-r', f'{results_dir}.zip', results_dir])
 
 
+# wipe the remote directory
 def clean(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/*"], check=False)
 
 
+# wipe only the remote data directory
 def clean_data(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.run(["ssh", pc, "rm", "-rf", f"{remote_dir}/data/*"], check=False)
 
 
+# list the remote directory of each pc
 def ls(remote_dir, minipcs):
     for pc in minipcs:
         print(f"{pc}")
@@ -54,6 +68,7 @@ def ls(remote_dir, minipcs):
         print("---------------------------")
 
 
+# distribute the local instance jsons round-robin over the pcs
 def data(remote_dir, data_dir, minipcs):
     data_path = pathlib.Path(data_dir)
     files = data_path.glob("**/*.json")
@@ -66,12 +81,14 @@ def data(remote_dir, data_dir, minipcs):
         i = (i + 1) % len(minipcs)
 
 
+# show the most cpu-hungry process of each pc
 def ps(minipcs):
     for pc in minipcs:
         print(f"{pc}:")
         subprocess.run(["ssh", pc, "ps aux --sort=-pcpu | head -n 2"], check=False)
 
 
+# start benchmarks.py detached on each pc (survives ssh disconnection)
 def run(remote_dir, minipcs):
     for pc in minipcs:
         subprocess.Popen(
@@ -88,6 +105,7 @@ def run(remote_dir, minipcs):
     time.sleep(1)
 
 
+# kill benchmarks.py and the running binaries on each pc
 def stop(minipcs):
     for pc in minipcs:
         print(f"{pc}:")
@@ -100,6 +118,7 @@ def stop(minipcs):
         )
 
 
+# full cycle: clean, deploy, send data and start
 def all_(remote_dir, data_dir, minipcs):
     clean(remote_dir, minipcs)
     deploy(remote_dir, minipcs)
@@ -107,6 +126,7 @@ def all_(remote_dir, data_dir, minipcs):
     run(remote_dir, minipcs)
 
 
+# config path: --config, else ./config.toml
 def resolve_config(config_path):
     if config_path:
         return config_path
@@ -115,11 +135,13 @@ def resolve_config(config_path):
     raise ValueError("no configuration available")
 
 
+# open the config in $EDITOR (default nvim)
 def edit_config(config_path):
     editor = shlex.split(os.environ.get("EDITOR", "nvim"))
     subprocess.run([*editor, str(resolve_config(config_path))], check=False)
 
 
+# parse the [cluster] section; returns (remote_dir, data_dir, minipcs)
 def load_config(config_path):
     path = resolve_config(config_path)
 
@@ -156,6 +178,7 @@ COMMANDS = {
 }
 
 
+# run a command by name, Ctrl-C only interrupts the command
 def execute(command, settings):
     if command not in COMMANDS:
         print(f"unknown command: {command}")
@@ -166,6 +189,7 @@ def execute(command, settings):
         print()
 
 
+# interactive shell with tab completion; edit_config/reload refresh settings
 def shell(config_path):
     settings = load_config(config_path)
     names = sorted(COMMANDS) + ["edit_config", "help", "reload", "quit", "exit"]

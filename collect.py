@@ -10,7 +10,17 @@ import tomllib
 
 import pandas as pd
 
+"""Collect the results of the instance JSON files into a single table.
 
+Usage: ./collect.py INPUT_DIR [--config FILE] [--format csv|excel]
+
+The table is written to ./doc/<INPUT_DIR name>.{csv,xlsx}. Columns and index
+are selected by the [collect] section of the config.
+"""
+
+
+# flatten one json to a single-row dataframe with (section, field) columns;
+# only numbers and strings are kept
 def read_json(path):
     with open(path, "r") as f:
         try:
@@ -27,6 +37,7 @@ def read_json(path):
     return pd.DataFrame(d)
 
 
+# read all the jsons under input_dir into one dataframe indexed by instance_index
 def read_dataframe(args):
     list_of_df = [read_json(f) for f in args.input_dir.glob("**/*.json")]
     df = pd.concat(list_of_df)
@@ -37,16 +48,20 @@ def read_dataframe(args):
     return df
 
 
+# select the configured columns and write the table to ./doc
 def write_output(args):
     df = read_dataframe(args)
 
+    # algorithm names without extension
     algos = [pathlib.Path(a).stem for a in config["execs"]]  # remove extension
 
+    # keep only the configured instance and algorithm columns
     instaces_columns = list(itertools.product(["instance"], config["instance_fields"]))
     algos_columns = list(itertools.product(algos, config["exec_fields"]))
 
     df = df[instaces_columns + algos_columns]
 
+    # output goes to ./doc/<input_dir name>.<ext>
     output_dir = pathlib.Path.cwd() / "doc"
     output_dir.mkdir(exist_ok=True)
     output_file = output_dir / args.input_dir.name
